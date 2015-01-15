@@ -8,14 +8,11 @@ Python library to work with WARC files.
 """
 
 import gzip
-import builtins
 import datetime
 import uuid
-import logging
 import re
 import io
 import hashlib
-import sys
 
 from .utils import CaseInsensitiveDict, FilePart, HTTPObject, ContentType
 
@@ -35,19 +32,6 @@ class WARCHeader(CaseInsensitiveDict):
     :params defaults: If True, important headers like WARC-Record-ID,
                       WARC-Date, Content-Type and Content-Length are
                       initialized to automatically if not already present.
-    TODO:
-        List of attributes needed to make WARCHeaders look like ARC files
-
-        * url
-        * ip_address
-        * date (date of archival)
-        * content_type
-        * result_code (response code)
-        * checksum
-        * location
-        * offset (offset from beginning of file to recrod)
-        * filename (name of arc file)
-        * length (length of the n/w doc in bytes)
 
     """
     CONTENT_TYPES = dict(warcinfo='application/warc-fields',
@@ -73,6 +57,9 @@ class WARCHeader(CaseInsensitiveDict):
         if defaults:
             self.init_defaults()
 
+    def __repr__(self):
+        return "<WARCHeader: type={}, record_id={}>".format(self.type, self.record_id)
+
     def init_defaults(self):
         """Initializes important headers to default values, if not already specified.
 
@@ -96,10 +83,7 @@ class WARCHeader(CaseInsensitiveDict):
             name = name.title()
             # Use standard forms for commonly used patterns
             name = name.replace("Warc-", "WARC-").replace("-Ip-", "-IP-").replace("-Id", "-ID").replace("-Uri", "-URI")
-            f.write(str(name).encode())
-            f.write(b": ")
-            f.write(str(value).encode())
-            f.write(b"\r\n")
+            entry = "{}: {}\r\n".format(str(name), str(value)).encode()
 
         # Header ends with an extra CRLF
         f.write(b"\r\n")
@@ -123,14 +107,6 @@ class WARCHeader(CaseInsensitiveDict):
     def date(self):
         """The value of WARC-Date header."""
         return self['WARC-Date']
-
-    def __str__(self):
-        f = io.BytesIO()
-        self.write_to(f)
-        return str(f.getvalue(), 'utf-8')
-
-    def __repr__(self):
-        return "<WARCHeader: type=%r, record_id=%r>" % (self.type, self.record_id)
 
 class WARCRecord(object):
     """The WARCRecord object represents a WARC Record.
@@ -281,7 +257,7 @@ class WARCRecord(object):
 class WARCFile:
     def __init__(self, filename=None, mode=None, fileobj=None, compress=None):
         if fileobj is None:
-            fileobj = builtins.open(filename, mode or "rb")
+            fileobj = open(filename, mode or "rb")
             mode = fileobj.mode
         # initiaize compress based on filename, if not already specified
         if compress is None and filename and filename.endswith(".gz"):
@@ -317,31 +293,8 @@ class WARCFile:
         """Reads a warc record from this WARC file."""
         return self.reader.read_record()
 
-
     def close(self):
         self.fileobj.close()
-
-    def browse(self):
-        """Utility to browse through the records in the warc file.
-
-        This returns an iterator over (record, offset, size) for each record in
-        the file. If the file is gzip compressed, the offset and size will
-        corresponds to the compressed file.
-
-        The payload of each record is limited to 1MB to keep memory consumption
-        under control.
-        """
-        offset = 0
-        for record in self.reader:
-            # Just read the first 1MB of the payload.
-            # This will make sure memory consuption is under control and it
-            # is possible to look at the first MB of the payload, which is
-            # typically sufficient to read http headers in the payload.
-            record.payload = io.BytesIO(record.payload.read(1024*1024))
-            self.reader.finish_reading_current_record()
-            next_offset = self.tell()
-            yield record, offset, next_offset-offset
-            offset = next_offset
 
     def tell(self):
         """Returns the file offset.
