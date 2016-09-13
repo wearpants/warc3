@@ -135,12 +135,14 @@ class WARCHeader(CaseInsensitiveDict):
 class WARCRecord(object):
     """The WARCRecord object represents a WARC Record.
     """
-    def __init__(self, header=None, payload=None,  headers={}, defaults=True):
+    def __init__(self, header=None, payload=None,  headers=None, defaults=True):
         """Creates a new WARC record.
 
            @param payload must be of type 'bytes' or FilePart
         """
 
+        headers = {} if headers is None
+        
         if header is None and defaults is True:
             headers.setdefault("WARC-Type", "response")
 
