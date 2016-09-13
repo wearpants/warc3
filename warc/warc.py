@@ -141,8 +141,8 @@ class WARCRecord(object):
            @param payload must be of type 'bytes' or FilePart
         """
 
-        headers = {} if headers is None
-        
+        headers = {} if headers is None else headers
+
         if header is None and defaults is True:
             headers.setdefault("WARC-Type", "response")
 
