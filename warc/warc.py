@@ -138,37 +138,45 @@ class WARCRecord(object):
     def __init__(self, header=None, payload=None,  headers=None, defaults=True):
         """Creates a new WARC record.
 
-           @param payload must be of type 'bytes' or FilePart
+           @param payload must be of type 'bytes'
         """
 
         headers = {} if headers is None else headers
+        payload = b'' if payload is None else payload
 
+        # this is needed so WARCHeader sets appropriate Content-Type
         if header is None and defaults is True:
             headers.setdefault("WARC-Type", "response")
 
         self.header = header or WARCHeader(headers, defaults=True)
 
-        if defaults is True and 'Content-Length' not in self.header:
-            if payload:
-                self.header['Content-Length'] = len(payload)
-            else:
-                self.header['Content-Length'] = "0"
-                
-        if defaults is True and 'WARC-Payload-Digest' not in self.header:
-            self.header['WARC-Payload-Digest'] = self._compute_digest(payload)
+        self.payload = io.BytesIO()
 
-        if isinstance(payload, bytes):
-            payload = io.BytesIO(payload)
-            
-        self.payload = payload
-        self._content = None
+        if not defaults:
+            # to keep compatibility, if defaults is False, bypass payload header calculation
+            self._replace_payload(payload)
+        else:
+            self.update_payload(payload)
+
+    def _add_payload_headers(self, b):
+        self.header['Content-Length'] = len(b)
+        self.header['WARC-Payload-Digest'] = self._compute_digest(b)
 
     def _compute_digest(self, payload):
         return "sha1:" + hashlib.sha1(payload).hexdigest()
 
+    def _replace_payload(self, b):
+        self.payload.seek(0)
+        self.payload.write(b)
+
+    def update_payload(self, b):
+        """replace the contents of `payload` & recalculate headers"""
+        self._replace_payload(b)
+        self._add_payload_headers(b)
+
     def write_to(self, f):
         self.header.write_to(f)
-        f.write(self.payload.read())
+        f.write(self.payload.getbuffer())
         f.write(b"\r\n")
         f.write(b"\r\n")
         f.flush()
