@@ -88,10 +88,14 @@ class WARCHeader(CaseInsensitiveDict):
         if "Content-Type" not in self:
             self['Content-Type'] = WARCHeader.CONTENT_TYPES.get(self.type, "application/octet-stream")
 
-    def write_to(self, f):
+    def write_to(self, f, version_line=True, extra_crlf=True):
         """Writes this header to a file, in the format specified by WARC.
+        
+        Set version_line to False to disable writing a version string
+        Set extra_crlf to False to disable writing the trailing blank line
         """
-        f.write(self.version.encode() + b"\r\n")
+        if version_line:
+            f.write(self.version.encode() + b"\r\n")
         for name, value in self.items():
             name = name.title()
             # Use standard forms for commonly used patterns
@@ -102,7 +106,8 @@ class WARCHeader(CaseInsensitiveDict):
             f.write(b"\r\n")
 
         # Header ends with an extra CRLF
-        f.write(b"\r\n")
+        if extra_crlf:
+            f.write(b"\r\n")
 
     @property
     def content_length(self):
@@ -248,7 +253,7 @@ class WARCRecord(object):
         """
         # Get the httplib.HTTPResponse object
         http_response = response.raw._original_response
-        
+
         # HTTP status line, headers as string
         status_line = "HTTP/1.1 %d %s" % (http_response.status, http_response.reason)
         headers = str(http_response.msg)
@@ -263,7 +268,7 @@ class WARCRecord(object):
             stream.write(chunk)
 
         payload = stream.getvalue()
-        
+
         headers = {
             "WARC-Type": "response",
             "WARC-Target-URI": response.request.url
