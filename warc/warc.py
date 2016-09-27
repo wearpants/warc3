@@ -402,7 +402,9 @@ class WARCReader:
             return None
 
         self.current_payload = FilePart(fileobj, header.content_length)
-        record = WARCRecord(header, self.current_payload, defaults=False)
+        record = WARCRecord(header,
+                            self.current_payload.read(header.content_length),
+                            defaults=False)
         return record
 
     def _read_payload(self, fileobj, content_length):
